@@ -196,11 +196,20 @@ public class JSUtils {
 		}
 	}
 	
+	private String correctLinebreak(String source) {
+		String[] lines = source.split("\\R");
+		String ls = System.getProperty("line.separator");
+		StringBuffer sb = new StringBuffer();
+		for (String line : lines)
+			sb.append(line).append(ls);
+		return sb.toString();
+	}
+	
 	public String transformJSXtoJS(String jsxSource) {
 		babelBindings.put(INPUT_SCRIPT_VAR, jsxSource);
 		try {
 			babelScriptEngine().getContext().setWriter(babelScriptEngineStringWriter);
-			return babelScriptEngine().eval(JSX_TRANSFORM_COMMAND, babelBindings).toString();
+			return correctLinebreak(babelScriptEngine().eval(JSX_TRANSFORM_COMMAND, babelBindings).toString());
 		} catch (ScriptException e) {
 			throw new JSUtilsException("Can't transform JSX", e);
 		}
@@ -210,7 +219,7 @@ public class JSUtils {
 		babelBindings.put(INPUT_SCRIPT_VAR, es2015Source);
 		try {
 			babelScriptEngine().getContext().setWriter(babelScriptEngineStringWriter);
-			return babelScriptEngine().eval(ES2015_TRANSFORM_COMMAND, babelBindings).toString();
+			return correctLinebreak(babelScriptEngine().eval(ES2015_TRANSFORM_COMMAND, babelBindings).toString());
 		} catch (ScriptException e) {
 			throw new JSUtilsException("Can't transform ES2015", e);
 		}
@@ -220,7 +229,7 @@ public class JSUtils {
 		babelBindings.put(INPUT_SCRIPT_VAR, jsxAndES2015Source);
 		try {
 			babelScriptEngine().getContext().setWriter(babelScriptEngineStringWriter);
-			return babelScriptEngine().eval(JSX_AND_ES2015_TRANSFORM_COMMAND, babelBindings).toString();
+			return correctLinebreak(babelScriptEngine().eval(JSX_AND_ES2015_TRANSFORM_COMMAND, babelBindings).toString());
 		} catch (ScriptException e) {
 			throw new JSUtilsException("Can't transform JSX or ES2015", e);
 		}
@@ -251,7 +260,7 @@ public class JSUtils {
 		if (jsOptionsObject == null) jsOptionsObject = "{}"; 
 		try {
 			uglifyJS2ScriptEngine().getContext().setWriter(uglifyJS2ScriptEngineStringWriter);
-			return uglifyJS2ScriptEngine().eval("UglifyJS.minify(input, "+jsOptionsObject+");", uglifyJS2Bindings).toString();
+			return correctLinebreak(uglifyJS2ScriptEngine().eval("UglifyJS.minify(input, "+jsOptionsObject+");", uglifyJS2Bindings).toString());
 		} catch (ScriptException e) {
 			e.printStackTrace();
 			throw new JSUtilsException("Can't optimize by uglifyJS", e);

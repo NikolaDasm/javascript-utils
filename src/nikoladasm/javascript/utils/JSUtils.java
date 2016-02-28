@@ -52,11 +52,12 @@ public class JSUtils {
 	public static final String JSX_FILE_EXTENSION =
 		BaseJSDependenciesResolver.JSX_FILE_EXTENSION;
 
+	private static final String ADDITIONAL_PRESETS_PATTERN = "_add";
 	private static final String INTEFNAL_BABEL_SCRIPT_PATH = "resources/jslib/babel/babel.min.js";
 	private static final String INPUT_SCRIPT_VAR = "input";
-	private static final String JSX_TRANSFORM_COMMAND = "Babel.transform(input, { presets: ['react'] }).code";
-	private static final String ES2015_TRANSFORM_COMMAND = "Babel.transform(input, { presets: ['es2015'] }).code";
-	private static final String JSX_AND_ES2015_TRANSFORM_COMMAND = "Babel.transform(input, { presets: ['react','es2015'] }).code";
+	private static final String JSX_TRANSFORM_COMMAND = "Babel.transform(input, { presets: ['react'_add] }).code";
+	private static final String ES2015_TRANSFORM_COMMAND = "Babel.transform(input, { presets: ['es2015'_add] }).code";
+	private static final String JSX_AND_ES2015_TRANSFORM_COMMAND = "Babel.transform(input, { presets: ['react','es2015'_add] }).code";
 	private static final String[] UGLIFYJS2_SCRIPT_PATHS = new String[]{
 		"resources/jslib/uglifyjs2/utils.js",
 		"resources/jslib/uglifyjs2/ast.js",
@@ -71,6 +72,9 @@ public class JSUtils {
 		"resources/jslib/uglifyjs2/exports.js",
 		"resources/jslib/uglifyjs2/init.js"
 	};
+	private static final String JSHINT_SCRIPT_PATH = "resources/jslib/jshint/jshint.js";
+	private static final String JSHINT_REPORTER_SCRIPT_PATH = "resources/jslib/jshint/reporter.js";
+	
 	private Reader babelScript;
 	private String externalBabelScriptPath;
 	private ScriptEngine babelScriptEngine;
@@ -81,6 +85,9 @@ public class JSUtils {
 	private ScriptEngine uglifyJS2ScriptEngine;
 	private StringWriter uglifyJS2ScriptEngineStringWriter;
 	private SimpleBindings uglifyJS2Bindings = new SimpleBindings();
+	private ScriptEngine jshintScriptEngine;
+	private StringWriter jshintScriptEngineStringWriter;
+	private SimpleBindings jshintBindings = new SimpleBindings();
 	
 	public static String readFile(Path path, Charset encoding) throws IOException {
 		StringBuffer sb = new StringBuffer();
@@ -96,6 +103,7 @@ public class JSUtils {
 			new OutputStreamWriter(
 				Files.newOutputStream(path, CREATE), encoding))) {
 			bwr.write(content);
+			bwr.flush();
 		}
 	}
 	
@@ -140,6 +148,15 @@ public class JSUtils {
 	
 	public StringWriter uglifyJS2ScriptEngineStringWriter() {
 		return uglifyJS2ScriptEngineStringWriter;
+	}
+	
+	public JSUtils jshintScriptEngineStringWriter(StringWriter stringWriter) {
+		this.jshintScriptEngineStringWriter = stringWriter;
+		return this;
+	}
+	
+	public StringWriter jshintScriptEngineStringWriter() {
+		return jshintScriptEngineStringWriter;
 	}
 	
 	private BufferedReader resourceReader(String resource) throws IOException {
@@ -196,6 +213,18 @@ public class JSUtils {
 		}
 	}
 	
+	private ScriptEngine jshintScriptEngine() {
+		if (jshintScriptEngine != null) return jshintScriptEngine;
+		jshintScriptEngine = new ScriptEngineManager().getEngineByName("nashorn");
+		try {
+			jshintScriptEngine.eval(resourceReader(JSHINT_SCRIPT_PATH), jshintBindings);
+			jshintScriptEngine.eval(resourceReader(JSHINT_REPORTER_SCRIPT_PATH), jshintBindings);
+			return jshintScriptEngine;
+		} catch (ScriptException | IOException e) {
+			throw new JSUtilsException("Can't initialize JSHint script", e);
+		}
+	}
+	
 	private String correctLinebreak(String source) {
 		String[] lines = source.split("\\R");
 		String ls = System.getProperty("line.separator");
@@ -206,30 +235,59 @@ public class JSUtils {
 	}
 	
 	public String transformJSXtoJS(String jsxSource) {
+		return transformJSXtoJS(jsxSource, null);
+	}
+	
+	private String presets(String[] additionalPresets) {
+		String presets = "";
+		StringBuffer sb = new StringBuffer();
+		if (additionalPresets != null && additionalPresets.length > 0) {
+			for (String preset : additionalPresets)
+			sb.append(", '").append(preset).append("'");
+			presets = sb.toString();
+		}
+		return presets;
+	}
+	
+	public String transformJSXtoJS(String jsxSource, String[] additionalPresets) {
+		String presets = presets(additionalPresets);
+		String command = JSX_TRANSFORM_COMMAND.replace(ADDITIONAL_PRESETS_PATTERN, presets);
 		babelBindings.put(INPUT_SCRIPT_VAR, jsxSource);
 		try {
 			babelScriptEngine().getContext().setWriter(babelScriptEngineStringWriter);
-			return correctLinebreak(babelScriptEngine().eval(JSX_TRANSFORM_COMMAND, babelBindings).toString());
+			return correctLinebreak(babelScriptEngine().eval(command, babelBindings).toString());
 		} catch (ScriptException e) {
 			throw new JSUtilsException("Can't transform JSX", e);
 		}
 	}
 	
 	public String transformES2015toES5(String es2015Source) {
+		return transformES2015toES5(es2015Source, null);
+	}
+
+	public String transformES2015toES5(String es2015Source, String[] additionalPresets) {
+		String presets = presets(additionalPresets);
+		String command = ES2015_TRANSFORM_COMMAND.replace(ADDITIONAL_PRESETS_PATTERN, presets);
 		babelBindings.put(INPUT_SCRIPT_VAR, es2015Source);
 		try {
 			babelScriptEngine().getContext().setWriter(babelScriptEngineStringWriter);
-			return correctLinebreak(babelScriptEngine().eval(ES2015_TRANSFORM_COMMAND, babelBindings).toString());
+			return correctLinebreak(babelScriptEngine().eval(command, babelBindings).toString());
 		} catch (ScriptException e) {
 			throw new JSUtilsException("Can't transform ES2015", e);
 		}
 	}
 
 	public String transformJSXAndES2015toES5(String jsxAndES2015Source) {
+		return transformJSXAndES2015toES5(jsxAndES2015Source, null);
+	}
+	
+	public String transformJSXAndES2015toES5(String jsxAndES2015Source, String[] additionalPresets) {
+		String presets = presets(additionalPresets);
+		String command = JSX_AND_ES2015_TRANSFORM_COMMAND.replace(ADDITIONAL_PRESETS_PATTERN, presets);
 		babelBindings.put(INPUT_SCRIPT_VAR, jsxAndES2015Source);
 		try {
 			babelScriptEngine().getContext().setWriter(babelScriptEngineStringWriter);
-			return correctLinebreak(babelScriptEngine().eval(JSX_AND_ES2015_TRANSFORM_COMMAND, babelBindings).toString());
+			return correctLinebreak(babelScriptEngine().eval(command, babelBindings).toString());
 		} catch (ScriptException e) {
 			throw new JSUtilsException("Can't transform JSX or ES2015", e);
 		}
@@ -264,6 +322,20 @@ public class JSUtils {
 		} catch (ScriptException e) {
 			e.printStackTrace();
 			throw new JSUtilsException("Can't optimize by uglifyJS", e);
+		}
+	}
+
+	public String staticAnalyzeByJSHintScript(String source, String jsOptionsObject, String jsPredefObject) {
+		jshintBindings.put(INPUT_SCRIPT_VAR, source);
+		if (jsOptionsObject == null) jsOptionsObject = "{}"; 
+		if (jsPredefObject == null) jsPredefObject = "{}"; 
+		try {
+			jshintScriptEngine().getContext().setWriter(jshintScriptEngineStringWriter);
+			jshintScriptEngine().eval("JSHINT(input, "+jsOptionsObject+", "+jsPredefObject+");", jshintBindings);
+			return jshintScriptEngine().eval("jshintReporter(JSHINT.data(), {extendedReport : true})", jshintBindings).toString();
+		} catch (ScriptException e) {
+			e.printStackTrace();
+			throw new JSUtilsException("Can't analyze by jshint", e);
 		}
 	}
 }

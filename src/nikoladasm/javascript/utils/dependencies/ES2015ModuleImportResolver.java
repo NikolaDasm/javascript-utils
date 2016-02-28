@@ -31,31 +31,35 @@ public class ES2015ModuleImportResolver extends BaseJSDependenciesResolver {
 	
 	@Override
 	protected void buildIncludesNodeTree(DependenciesNode parent) throws Exception {
-		String source = fileReader.read(parent.path);
-		Module module = Parser.parseModule(source);
-		for (ImportDeclarationExportDeclarationStatement astNode : module.items) {
-			if (astNode instanceof Import) {
-				Import moduleImport = (Import) astNode;
-				String moduleSpecifier = moduleImport.moduleSpecifier;
-				String dependency;
-				if (moduleSpecifier.startsWith("./"))
-					dependency = moduleSpecifier.substring(2);
-				else
-					dependency = moduleSpecifier;
-				Path include =
-					getAbsoluteExistingPath(parent.path.getParent().resolve(dependency).normalize());
-				parent.dependenciesMap.put(moduleSpecifier, include);
-				DependenciesNode node = parent.root.getNode(include);
-				if (node != null) {
-					parent.childNodes.add(node);
-				} else {
-					node = new DependenciesNode();
-					node.root = parent.root;
-					node.path = include;
-					parent.childNodes.add(node);
-					buildIncludesNodeTree(node);
+		try {
+			String source = fileReader.read(parent.path);
+			Module module = Parser.parseModule(source);
+			for (ImportDeclarationExportDeclarationStatement astNode : module.items) {
+				if (astNode instanceof Import) {
+					Import moduleImport = (Import) astNode;
+					String moduleSpecifier = moduleImport.moduleSpecifier;
+					String dependency;
+					if (moduleSpecifier.startsWith("./"))
+						dependency = moduleSpecifier.substring(2);
+					else
+						dependency = moduleSpecifier;
+					Path include =
+						getAbsoluteExistingPath(parent.path.getParent().resolve(dependency).normalize());
+					parent.dependenciesMap.put(moduleSpecifier, include);
+					DependenciesNode node = parent.root.getNode(include);
+					if (node != null) {
+						parent.childNodes.add(node);
+					} else {
+						node = new DependenciesNode();
+						node.root = parent.root;
+						node.path = include;
+						parent.childNodes.add(node);
+						buildIncludesNodeTree(node);
+					}
 				}
 			}
+		} catch (Exception e) {
+			throw new Exception("Path"+parent.path, e);
 		}
 	}
 }

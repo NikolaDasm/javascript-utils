@@ -241,30 +241,34 @@ public class CJSDependenciesResolver extends BaseJSDependenciesResolver {
 	
 	@Override
 	protected void buildIncludesNodeTree(DependenciesNode parent) throws Exception {
-		String source = fileReader.read(parent.path);
-		Script script = Parser.parseScript(source);
-		List<String> requireFunctionArguments = new LinkedList<>();
-		for (Statement statement : script.statements)
-			parseStatement(statement, requireFunctionArguments);
-		for (String requireFunctionArgument : requireFunctionArguments) {
-			String dependency;
-			if (requireFunctionArgument.startsWith("./"))
-				dependency = requireFunctionArgument.substring(2);
-			else
-				dependency = requireFunctionArgument;
-			Path require =
-				getAbsoluteExistingPath(parent.path.getParent().resolve(dependency).normalize());
-			parent.dependenciesMap.put(requireFunctionArgument, require);
-			DependenciesNode node = parent.root.getNode(require);
-			if (node != null) {
-				parent.childNodes.add(node);
-			} else {
-				node = new DependenciesNode();
-				node.root = parent.root;
-				node.path = require;
-				parent.childNodes.add(node);
-				buildIncludesNodeTree(node);
+		try {
+			String source = fileReader.read(parent.path);
+			Script script = Parser.parseScript(source);
+			List<String> requireFunctionArguments = new LinkedList<>();
+			for (Statement statement : script.statements)
+				parseStatement(statement, requireFunctionArguments);
+			for (String requireFunctionArgument : requireFunctionArguments) {
+				String dependency;
+				if (requireFunctionArgument.startsWith("./"))
+					dependency = requireFunctionArgument.substring(2);
+				else
+					dependency = requireFunctionArgument;
+				Path require =
+					getAbsoluteExistingPath(parent.path.getParent().resolve(dependency).normalize());
+				parent.dependenciesMap.put(requireFunctionArgument, require);
+				DependenciesNode node = parent.root.getNode(require);
+				if (node != null) {
+					parent.childNodes.add(node);
+				} else {
+					node = new DependenciesNode();
+					node.root = parent.root;
+					node.path = require;
+					parent.childNodes.add(node);
+					buildIncludesNodeTree(node);
+				}
 			}
+		} catch (Exception e) {
+			throw new Exception("Path"+parent.path, e);
 		}
 	}
 }

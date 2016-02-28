@@ -79,7 +79,7 @@ public abstract class BaseJSDependenciesResolver {
 			Path pathWithExtension = path.resolveSibling(path.getFileName() + extension);
 			if (Files.exists(pathWithExtension) && !Files.isDirectory(pathWithExtension)) return pathWithExtension;
 		}
-		throw new RuntimeException("Invalid dependencies"+originalPath);
+		throw new IllegalArgumentException("Invalid dependencies"+originalPath);
 	}
 	
 	protected abstract void buildIncludesNodeTree(DependenciesNode parent) throws Exception;
